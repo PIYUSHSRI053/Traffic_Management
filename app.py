@@ -1,5 +1,6 @@
 import streamlit as st
 import time
+from textwrap import dedent
 
 # ─── Page config (must be first) ─────────────────────────────────────────────
 st.set_page_config(
@@ -15,8 +16,16 @@ from dashboard import get_dashboard_charts
 from evaluator import get_evaluation_metrics
 from vision_utils import create_placeholder_frame, cv2_error_message, has_cv2
 
+
+def render_html(markup: str) -> None:
+    st.markdown(dedent(markup).strip(), unsafe_allow_html=True)
+
+
+def render_svg(markup: str) -> None:
+    st.html(dedent(markup).strip())
+
 # ─── Custom CSS ───────────────────────────────────────────────────────────────
-st.markdown("""
+render_html("""
 <style>
 /* Removed Google Fonts import */
 
@@ -223,7 +232,7 @@ hr { border-color: #1e2540 !important; }
 /* DataFrame */
 [data-testid="stDataFrame"] { border: 1px solid #1e2540 !important; border-radius: 10px !important; }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 
 # ─── Traffic Light SVG ────────────────────────────────────────────────────────
@@ -401,15 +410,15 @@ def main():
         )
         error_details = cv2_error_message()
         if error_details:
-            st.caption(f"OpenCV import details: `{error_details}`")
+            st.caption(f"OpenCV import details: {error_details}")
 
     # ── Header ────────────────────────────────────────────────────────────────
     col_title, col_badge = st.columns([4.6, 1.6])
     with col_title:
-        st.markdown('<h1 class="main-title">AI Smart Traffic Control</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="subtitle">Real-time vehicle detection & adaptive signal management</p>', unsafe_allow_html=True)
+        render_html('<h1 class="main-title">AI Smart Traffic Control</h1>')
+        render_html('<p class="subtitle">Real-time vehicle detection & adaptive signal management</p>')
     with col_badge:
-        st.markdown(f'''
+        render_html(f'''
         <div style="text-align:right; margin-top:8px;">
             <div style="background:#0d1422; border:1px solid {badge_color}; border-radius:12px; padding:10px 14px; 
                         display:inline-block; min-width:200px;">
@@ -431,18 +440,18 @@ def main():
                 </div>
             </div>
         </div>
-        ''', unsafe_allow_html=True)
+        ''')
 
     st.markdown("---")
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
-        st.markdown("""
+        render_html("""
         <div style="font-family:'Rajdhani',sans-serif; font-size:1.3rem; font-weight:700;
                     letter-spacing:3px; color:#00d2ff; text-transform:uppercase; margin-bottom:16px;">
             ⚙ Controls
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         st.markdown("**📂 Upload Lane Videos**")
         video_files = {}
@@ -491,14 +500,14 @@ def main():
         # Live timer in sidebar
         sig = st.session_state.signal_state
         sig_color = "#00e676" if sig == "GREEN" else "#ff1744" if sig == "RED" else "#ffd600"
-        st.markdown(f"""
+        render_html(f"""
         <div class="timer-container">
             <div class="timer-label">Current Signal</div>
             <div class="timer-value" style="color:{sig_color};">{sig}</div>
             <div class="timer-label" style="margin-top:4px;">Time Remaining</div>
             <div class="timer-value">{timer_text}</div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         # Progress bar
         if sig == "GREEN" and green_time > 0:
@@ -506,13 +515,13 @@ def main():
             st.progress(progress)
 
         st.markdown("---")
-        st.markdown(f"""
+        render_html(f"""
         <div style="font-family:'Share Tech Mono',monospace; font-size:0.7rem; color:#2a3a50; text-align:center; letter-spacing:1px;">
             YOLOv8n · SORT Tracker<br>
             Adaptive Signal Control<br>
             {'✅ Model Loaded' if st.session_state.model else '⚠️ No Model (Demo Mode)'}
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
     tab1, tab2, tab3 = st.tabs(["  🎥  LIVE TRAFFIC  ", "  📊  DASHBOARD  ", "  📈  EVALUATION  "])
@@ -533,24 +542,24 @@ def main():
             sig_color = "#00e676" if sig == "GREEN" else "#ff1744" if sig == "RED" else "#ffd600"
             
             # Lane label
-            st.markdown(f'''
+            render_html(f'''
             <div style="text-align:center; font-family:'Rajdhani',sans-serif;
                         font-size:0.85rem; font-weight:700; letter-spacing:3px;
                         text-transform:uppercase; color:#4a6080; margin-bottom:4px;">
-                ◈ SIDE {lane_idx+1}
+                LANE {lane_idx+1}
             </div>
-            ''', unsafe_allow_html=True)
+            ''')
     
             # Traffic light SVG - SIMPLIFIED
-            st.markdown(traffic_light_svg(sig), unsafe_allow_html=True)
+            render_svg(traffic_light_svg(sig))
     
             # Signal badge
-            st.markdown(f"""
+            render_html(f"""
             <div class="sig-badge" style="color:{sig_color}; background: #0d1422;
                  border:1px solid {sig_color}33; border-radius:8px; padding:5px; margin-bottom:8px;">
                 ● {sig}
             </div>
-            """, unsafe_allow_html=True)
+            """)
     
             # Video frame
             frame = lane.get_frame()
@@ -561,36 +570,36 @@ def main():
             # Live/Paused status
             status_color = "#00e676" if sig == "GREEN" else "#4a6080"
             status_text = "▶ LIVE DETECTION" if sig == "GREEN" else "⏸ VIDEO PAUSED"
-            st.markdown(f"""
+            render_html(f"""
             <div style="text-align:center; font-size:0.7rem; color:{status_color};
                         font-family:'Share Tech Mono',monospace; letter-spacing:2px; margin-top:4px;">
                 {status_text}
-            </div>""", unsafe_allow_html=True)
+            </div>""")
     
             # Total vehicles badge
             total = sum(lane.counts.values())
-            st.markdown(f"""
+            render_html(f"""
             <div class="total-badge">
                 <div class="tb-label">Total Vehicles</div>
                 <div class="tb-value">{total:02d}</div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
     
             # Vehicle breakdown grid
-            st.markdown(f"""
+            render_html(f"""
             <div class="veh-grid">
                 <div class="veh-metric"><div class="veh-label">🚗 Cars</div><div class="veh-value">{lane.counts['car']:02d}</div></div>
                 <div class="veh-metric"><div class="veh-label">🏍 Bikes</div><div class="veh-value">{lane.counts['motorcycle']:02d}</div></div>
                 <div class="veh-metric"><div class="veh-label">🚌 Buses</div><div class="veh-value">{lane.counts['bus']:02d}</div></div>
                 <div class="veh-metric"><div class="veh-label">🚛 Trucks</div><div class="veh-value">{lane.counts['truck']:02d}</div></div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
     
             # Accident alert
             if lane.accident:
-                st.markdown("""
+                render_html("""
                 <div class="accident-alert">⚠ ACCIDENT ALERT (HIGH CONGESTION)</div>
-                """, unsafe_allow_html=True)
+                """)
     
         # Row 1
         with row1_col1:
