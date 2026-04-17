@@ -67,7 +67,13 @@ class Lane:
         if not self.model:
             return []
 
-        results = self.model(frame, conf=CONF_THRESH, verbose=False)[0]
+        results = self.model(
+            frame,
+            conf=CONF_THRESH,
+            verbose=False,
+            imgsz=MODEL_IMAGE_SIZE,
+            classes=list(ALLOWED_CLASSES.keys()),
+        )[0]
         detections = []
 
         if results.boxes is None:
@@ -121,7 +127,7 @@ class Lane:
             self.load_error = (
                 "OpenCV is unavailable in this deployment. "
                 "Keep opencv-python-headless in requirements.txt and "
-                "install libgl1 plus libglib2.0-0 in packages.txt."
+                "install libgl1 plus libglib2.0-0t64 in packages.txt."
             )
             self.last_frame = create_placeholder_frame(
                 "OpenCV Missing",
@@ -133,6 +139,10 @@ class Lane:
         if self.cap:
             self.cap.release()
         self.cap = cv2.VideoCapture(file_path)
+        try:
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        except Exception:
+            pass
         if not self.cap or not self.cap.isOpened():
             self.load_error = "Unable to open the uploaded video file."
             self.last_frame = create_placeholder_frame(
@@ -151,8 +161,10 @@ class Lane:
         """Load video from Streamlit uploaded file by saving to temp path"""
         import tempfile, os
         suffix = os.path.splitext(uploaded_file.name)[-1]
+        file_bytes = uploaded_file.getbuffer()
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(uploaded_file.read())
+            tmp.write(file_bytes)
+            tmp.flush()
             tmp_path = tmp.name
         return self.load_video(tmp_path)
 
@@ -181,9 +193,9 @@ class Lane:
                         pass
                 # If RED/YELLOW, sleep longer (video paused)
                 if self.running:
-                    time.sleep(0.033)
+                    time.sleep(ACTIVE_LOOP_DELAY)
                 else:
-                    time.sleep(0.2)
+                    time.sleep(IDLE_LOOP_DELAY)
             except Exception as e:
                 print(f"Lane {self.lane_id} processing error: {e}")
                 time.sleep(0.5)
@@ -217,7 +229,9 @@ class Lane:
         frame = cv2.resize(frame, (480, 320))
         self.frame_count += 1
 
-        if self.model:
+        should_run_detection = self.model and self.frame_count % DETECTION_FRAME_SKIP == 0
+
+        if should_run_detection:
             detections = self._collect_detections(frame)
             detection_boxes = [detection["bbox"] for detection in detections]
             tracked_objects = self.tracker.update(detection_boxes)
@@ -264,7 +278,7 @@ class Lane:
                 if track_id in active_track_ids
             }
             self.counts = counts
-        else:
+        elif not self.model:
             self.counts = self._empty_counts()
 
         total = sum(self.counts.values())

@@ -10,7 +10,7 @@ st.set_page_config(
 )
 
 from lane import Lane
-from config import MIN_GREEN, MAX_GREEN, YELLOW_TIME
+from config import MIN_GREEN, MAX_GREEN, UI_REFRESH_SECONDS, YELLOW_TIME
 from dashboard import get_dashboard_charts
 from evaluator import get_evaluation_metrics
 from vision_utils import create_placeholder_frame, cv2_error_message, has_cv2
@@ -292,11 +292,7 @@ def traffic_light_svg(signal: str) -> str:
 # ─── Session state init ───────────────────────────────────────────────────────
 def init_state():
     if "initialized" not in st.session_state:
-        try:
-            from ultralytics import YOLO
-            model = YOLO("yolov8n.pt")
-        except Exception:
-            model = None
+        model = load_model()
 
         st.session_state.model = model
         st.session_state.lanes = []
@@ -315,6 +311,19 @@ def init_state():
             lane.set_signal("GREEN" if i == 0 else "RED")
 
         st.session_state.initialized = True
+
+
+@st.cache_resource
+def load_model():
+    try:
+        from ultralytics import YOLO
+        return YOLO("yolov8n.pt")
+    except Exception:
+        return None
+
+
+def has_loaded_video(lane) -> bool:
+    return bool(getattr(lane, "video_path", None))
 
 
 def lane_green_time(lane_index: int) -> int:
@@ -377,6 +386,7 @@ def placeholder_frame():
 def main():
     init_state()
     lanes = st.session_state.lanes
+    any_loaded_video = any(has_loaded_video(lane) for lane in lanes)
     remaining, green_time = traffic_logic()
     cur = st.session_state.current_lane
     sig = st.session_state.signal_state
@@ -396,27 +406,32 @@ def main():
     # ── Header ────────────────────────────────────────────────────────────────
     col_title, col_badge = st.columns([4.6, 1.6])
     with col_title:
-        st.markdown('<h1 class="main-title">AI Smart Traffic Control</h1    >', unsafe_allow_html=True)
+        st.markdown('<h1 class="main-title">AI Smart Traffic Control</h1>', unsafe_allow_html=True)
         st.markdown('<p class="subtitle">Real-time vehicle detection & adaptive signal management</p>', unsafe_allow_html=True)
     with col_badge:
-        st.markdown(f"""
+        st.markdown(f'''
         <div style="text-align:right; margin-top:8px;">
-            <div style="background:#0d1422; border:1px solid {badge_color}; border-radius:12px;
-                        padding:10px 14px; display:inline-block; min-width:200px;">
+            <div style="background:#0d1422; border:1px solid {badge_color}; border-radius:12px; padding:10px 14px; 
+                        display:inline-block; min-width:200px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px;">
                     <div style="text-align:left;">
-                        <div style="font-size:0.65rem; color:#4a6080; letter-spacing:2px; font-family:'Share Tech Mono',monospace;">ACTIVE LANE</div>
-                        <div style="font-size:1.5rem; font-weight:700; color:{badge_color}; font-family:'Share Tech Mono',monospace;">LANE {cur+1}</div>
-                        <div style="font-size:0.72rem; color:{badge_color}; letter-spacing:2px; font-family:'Share Tech Mono',monospace;">{sig}</div>
+                        <div style="font-size:0.65rem; color:#4a6080; letter-spacing:2px; 
+                                    font-family:Share Tech Mono,monospace;">ACTIVE LANE</div>
+                        <div style="font-size:1.5rem; font-weight:700; color:{badge_color}; 
+                                    font-family:Share Tech Mono,monospace;">LANE {cur+1}</div>
+                        <div style="font-size:0.72rem; color:{badge_color}; letter-spacing:2px; 
+                                    font-family:Share Tech Mono,monospace;">{sig}</div>
                     </div>
                     <div style="text-align:right;">
-                        <div style="font-size:0.65rem; color:#4a6080; letter-spacing:2px; font-family:'Share Tech Mono',monospace;">TIMER</div>
-                        <div style="font-size:1.15rem; font-weight:700; color:{badge_color}; font-family:'Share Tech Mono',monospace;">{timer_text}</div>
+                        <div style="font-size:0.65rem; color:#4a6080; letter-spacing:2px; 
+                                    font-family:Share Tech Mono,monospace;">TIMER</div>
+                        <div style="font-size:1.15rem; font-weight:700; color:{badge_color}; 
+                                    font-family:Share Tech Mono,monospace;">{timer_text}</div>
                     </div>
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -522,17 +537,12 @@ def main():
             <div style="text-align:center; font-family:'Rajdhani',sans-serif;
                         font-size:0.85rem; font-weight:700; letter-spacing:3px;
                         text-transform:uppercase; color:#4a6080; margin-bottom:4px;">
-                ◈ LANE {lane_idx+1}
+                ◈ SIDE {lane_idx+1}
             </div>
             ''', unsafe_allow_html=True)
     
-            # Traffic light SVG
-            st.markdown(
-                f'<div style="display:flex; justify-content:center; margin:4px 0 8px;">'
-                f'{traffic_light_svg(sig)}'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+            # Traffic light SVG - SIMPLIFIED
+            st.markdown(traffic_light_svg(sig), unsafe_allow_html=True)
     
             # Signal badge
             st.markdown(f"""
@@ -646,17 +656,18 @@ def main():
     
     # ── Update history & Auto refresh ───────────────────────────────────────────
     # Log current state for dashboard charts
-    current_totals = [sum(lane.counts.values()) for lane in lanes]
-    st.session_state.history.append({
-        'timestamp': time.time(),
-        'totals': current_totals,
-        'signals': [lane.signal_state for lane in lanes]
-    })
-    if len(st.session_state.history) > 100:
-        st.session_state.history = st.session_state.history[-100:]
-    
-    time.sleep(0.1)
-    st.rerun()
+    if any_loaded_video:
+        current_totals = [sum(lane.counts.values()) for lane in lanes]
+        st.session_state.history.append({
+            'timestamp': time.time(),
+            'totals': current_totals,
+            'signals': [lane.signal_state for lane in lanes]
+        })
+        if len(st.session_state.history) > 100:
+            st.session_state.history = st.session_state.history[-100:]
+
+        time.sleep(UI_REFRESH_SECONDS)
+        st.rerun()
 
 
 if __name__ == "__main__":
