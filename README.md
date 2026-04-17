@@ -1,80 +1,130 @@
-# 🚦 AI Smart Traffic Control System
+# AI Smart Traffic Control System
 
-A professional, dark-themed Streamlit application for real-time traffic monitoring and adaptive signal control using YOLOv8 object detection.
+A Streamlit-based traffic management dashboard for multi-lane vehicle monitoring, adaptive signal timing, and live analytics using YOLOv8 + SORT tracking.
 
----
+## Overview
 
-## ✨ Features
+This project simulates an AI-assisted traffic junction with four lanes. Each lane can load a separate video feed, detect vehicles in real time, estimate congestion, and participate in adaptive signal switching based on density.
 
-- **Realistic SVG Traffic Lights** — Red/Yellow/Green with glow effects
-- **Video Pause/Play Logic** — Only the GREEN lane's video plays; other lanes are frozen
-- **4-Lane Video Upload** — Select your own MP4/AVI/MOV/MKV files per lane
-- **Adaptive Signal Timing** — Green time scales with detected vehicle density
-- **Live YOLO Detection** — Cars, motorcycles, buses, trucks (YOLOv8n)
-- **Accident Detection** — Flags lanes with high vehicle density
-- **Premium Dark UI** — Rajdhani + Share Tech Mono fonts, glow effects, animated alerts
-- **Rich Dashboard** — Trend chart, stacked bar, donut, heatmap, gauge
-- **Evaluation Tab** — Metrics table + confusion matrix
+The app includes:
 
----
+- Live 2x2 traffic monitoring for four lanes
+- YOLOv8 vehicle detection for cars, motorcycles, buses, and trucks
+- SORT-based multi-object tracking
+- Adaptive green-light timing based on live traffic density
+- Accident-risk alerting when congestion crosses a threshold
+- Dashboard analytics with Plotly charts
+- Evaluation tables and a demo confusion matrix
 
-## 🚀 Quick Start
+## Screenshots
+
+Illustrative UI previews styled to match the current application layout.
+
+### Live Traffic View
+
+![Live traffic preview](docs/screenshots/live-traffic-preview.png)
+
+### Analytics Dashboard
+
+![Dashboard preview](docs/screenshots/dashboard-preview.png)
+
+### Evaluation Tab
+
+![Evaluation preview](docs/screenshots/evaluation-preview.png)
+
+## Features
+
+- Four independent lane inputs with per-lane upload controls
+- Real-time signal visualization with GREEN, YELLOW, and RED states
+- Automatic lane switching with dynamic green duration
+- Vehicle count cards for each lane
+- Live dashboard charts for trends, fleet mix, load, risk, and density
+- Manual controls for next lane, all red, and green reset
+- Demo mode fallback when the detection model is unavailable
+
+## Tech Stack
+
+- Streamlit
+- Ultralytics YOLOv8
+- OpenCV
+- NumPy
+- Pandas
+- Plotly
+
+## Project Structure
+
+```text
+traffic_system/
+|-- app.py                     # Main Streamlit application
+|-- app_2x2.py                # Alternate app variant
+|-- lane.py                   # Lane processing, tracking, and video control
+|-- dashboard.py              # Plotly dashboard charts
+|-- evaluator.py              # Evaluation tables and confusion matrix
+|-- sort.py                   # SORT tracker implementation
+|-- config.py                 # Timing and detection settings
+|-- utils.py                  # Utility helpers
+|-- requirements.txt          # Python dependencies
+|-- packages.txt              # Linux system package for Streamlit Cloud/OpenCV
+|-- yolov8n.pt                # YOLO model weights
+|-- docs/screenshots/         # README preview images
+`-- Video/                    # Sample media assets
+```
+
+## Quick Start
 
 ### 1. Install dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 2. Run the app
+
 ```bash
-streamlit run streamlit_app.py
+streamlit run app.py
 ```
 
-### 3. Load videos
-- In the sidebar, upload MP4/AVI/MOV/MKV files for each lane (Lane 1–4)
-- Click **▶ Load Videos**
-- The system starts cycling through lanes automatically
+### 3. Use the interface
 
----
+1. Upload one video for each lane in the sidebar.
+2. Click `Load Videos`.
+3. Watch the system rotate signals automatically based on detected traffic.
+4. Open the `Dashboard` and `Evaluation` tabs for analytics.
 
-## 📁 Project Structure
+## Signal Timing Logic
 
-```
-traffic_system/
-├── streamlit_app.py    # Main application + UI
-├── lane.py             # Lane class (video processing, YOLO, play/pause)
-├── sort.py             # SORT multi-object tracker
-├── dashboard.py        # Plotly charts
-├── evaluator.py        # Metrics & confusion matrix
-├── config.py           # Constants (timing, classes, thresholds)
-├── utils.py            # Frame conversion utilities
-└── requirements.txt
-```
-
----
-
-## ⚙️ Signal Timing Logic
-
-| Signal | Duration |
+| Signal | Behavior |
 |--------|----------|
-| GREEN  | `5s + (vehicle_count × 0.6s)`, capped at 30s |
-| YELLOW | 2 seconds (fixed) |
-| RED    | While other lanes cycle |
+| GREEN | `MIN_GREEN + vehicle_count * 0.6`, capped by `MAX_GREEN` |
+| YELLOW | Fixed transition period using `YELLOW_TIME` |
+| RED | Active while another lane has priority |
 
----
+Current defaults from [`config.py`](config.py):
 
-## 🎛️ Manual Controls
+- `MIN_GREEN = 5`
+- `MAX_GREEN = 30`
+- `YELLOW_TIME = 2.0`
 
-| Button | Action |
-|--------|--------|
-| ⏭ Next Lane | Immediately skip to next lane |
-| 🔴 All Red | Force all signals to RED |
-| ▶ Load Videos | Load uploaded video files |
+## Supported Detection Classes
 
----
+- Car
+- Motorcycle
+- Bus
+- Truck
 
-## 📝 Notes
+## Deployment Notes
 
-- YOLOv8n model (`yolov8n.pt`) is downloaded automatically on first run via Ultralytics
-- If no model is available, the app runs in **Demo Mode** (video plays without detection)
-- Videos loop automatically when they reach the end
+- For Streamlit Community Cloud, keep `packages.txt` committed so OpenCV can load correctly in Linux containers.
+- If `yolov8n.pt` is missing, Ultralytics can re-download the model on first run.
+- If model loading fails, the UI still runs in demo mode without live detection.
+
+## Future Improvements
+
+- Export analytics and session history
+- Add configurable lane counts and layouts
+- Replace demo evaluation metrics with real benchmark outputs
+- Add persistent storage for uploaded sessions
+
+## License
+
+This project is intended for academic and demonstration use unless you add your own license terms.
