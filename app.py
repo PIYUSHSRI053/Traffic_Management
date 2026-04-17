@@ -232,22 +232,23 @@ def traffic_light_svg(signal: str) -> str:
     Returns an SVG traffic light.
     Active light glows; inactive lights are dark.
     """
-def light(color_hex, active):
-    return f'''
+    def light(color_hex: str, active: bool) -> str:
+        return f"""
     <circle cx="40" cy="0" r="22"
         fill="{color_hex if active else '#0a0e1a'}"
         stroke="#1e2540" stroke-width="2"/>
     <circle cx="40" cy="0" r="14"
         fill="{color_hex if active else '#1e2540'}" opacity="0.08"/>
-    '''
+    """
 
-    red_on    = signal == "RED"
+    red_on = signal == "RED"
     yellow_on = signal == "YELLOW"
-    green_on  = signal == "GREEN"
+    green_on = signal == "GREEN"
 
     housing_color = "#0d1422" if signal != "GREEN" else "#0d1a15"
-    border_color  = "#ff1744" if red_on else "#ffd600" if yellow_on else "#00e676" if green_on else "#1e2540"
-
+    border_color = (
+        "#ff1744" if red_on else "#ffd600" if yellow_on else "#00e676" if green_on else "#1e2540"
+    )
     sig_text_color = "#ff1744" if red_on else "#ffd600" if yellow_on else "#00e676"
 
     return f"""
@@ -259,32 +260,26 @@ def light(color_hex, active):
     </linearGradient>
   </defs>
 
-  <!-- Housing -->
   <rect x="10" y="10" width="60" height="240" rx="18"
         fill="url(#housing)" stroke="{border_color}" stroke-width="2.5"/>
 
-  <!-- Bolts -->
   <circle cx="22" cy="22" r="4" fill="#0d1422" stroke="#1e2540" stroke-width="1.5"/>
   <circle cx="58" cy="22" r="4" fill="#0d1422" stroke="#1e2540" stroke-width="1.5"/>
   <circle cx="22" cy="238" r="4" fill="#0d1422" stroke="#1e2540" stroke-width="1.5"/>
   <circle cx="58" cy="238" r="4" fill="#0d1422" stroke="#1e2540" stroke-width="1.5"/>
 
-  <!-- RED light -->
   <g transform="translate(0,68)">
-    {light("#ff1744", "red", red_on)}
+    {light("#ff1744", red_on)}
   </g>
 
-  <!-- YELLOW light -->
   <g transform="translate(0,130)">
-    {light("#ffd600", "yellow", yellow_on)}
+    {light("#ffd600", yellow_on)}
   </g>
 
-  <!-- GREEN light -->
   <g transform="translate(0,192)">
-    {light("#00e676", "green", green_on)}
+    {light("#00e676", green_on)}
   </g>
 
-  <!-- Signal label -->
   <text x="40" y="256" text-anchor="middle"
         font-family="'Share Tech Mono', monospace"
         font-size="9" fill="{sig_text_color}" letter-spacing="1">
