@@ -388,6 +388,16 @@ def main():
     badge_color = "#00e676" if sig == "GREEN" else "#ff1744" if sig == "RED" else "#ffd600"
     timer_text = f"{remaining}s" if sig != "RED" else "PAUSED"
 
+    if not has_cv2():
+        st.warning(
+            "OpenCV could not be imported in this deployment. "
+            "The interface can still load, but video uploads and live detection stay disabled "
+            "until Streamlit Cloud reinstalls the required system packages."
+        )
+        error_details = cv2_error_message()
+        if error_details:
+            st.caption(f"OpenCV import details: `{error_details}`")
+
     # ── Header ────────────────────────────────────────────────────────────────
     col_title, col_badge = st.columns([4.6, 1.6])
     with col_title:
@@ -438,9 +448,19 @@ def main():
 
         if video_files:
             if st.button("▶  Load Videos", use_container_width=True):
+                loaded_count = 0
+                failed_lanes = []
                 for i, f in video_files.items():
-                    lanes[i].load_uploaded_video(f)
-                st.success(f"✅ {len(video_files)} video(s) loaded!")
+                    if lanes[i].load_uploaded_video(f):
+                        loaded_count += 1
+                    else:
+                        failed_lanes.append(
+                            f"Lane {i + 1}: {lanes[i].load_error or 'Unable to load the video.'}"
+                        )
+                if loaded_count:
+                    st.success(f"✅ {loaded_count} video(s) loaded!")
+                if failed_lanes:
+                    st.error("\n".join(failed_lanes))
 
         st.markdown("---")
         st.markdown("**🎛️ Manual Controls**")

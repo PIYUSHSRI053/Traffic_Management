@@ -1,7 +1,5 @@
 import streamlit as st
 import time
-import numpy as np
-import cv2
 import os
 
 # ─── Page config (must be first) ─────────────────────────────────────────────
@@ -16,6 +14,7 @@ from lane import Lane
 from config import MIN_GREEN, MAX_GREEN, YELLOW_TIME
 from dashboard import get_dashboard_charts
 from evaluator import get_evaluation_metrics
+from vision_utils import create_placeholder_frame, cv2_error_message, has_cv2
 
 # ─── Custom CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
@@ -48,9 +47,7 @@ def traffic_light_svg(signal: str) -> str:
 
 # ─── Placeholder ──────────────────────────────────────────────────────────────
 def placeholder_frame():
-    img = np.zeros((320, 480, 3), dtype=np.uint8)
-    cv2.putText(img, "UPLOAD VIDEO", (140, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 150, 200), 2)
-    return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return create_placeholder_frame("NO VIDEO", "Upload a lane video")
 
 # ─── Init ─────────────────────────────────────────────────────────────────────
 if 'lanes' not in st.session_state:
@@ -59,15 +56,37 @@ lanes = st.session_state.lanes
 
 st.title("🚦 AI Smart Traffic Control - 2x2 Grid Layout")
 
+if not has_cv2():
+    st.warning(
+        "OpenCV could not be imported in this deployment. "
+        "This preview can still render, but video processing is disabled until the cloud runtime is fixed."
+    )
+    error_details = cv2_error_message()
+    if error_details:
+        st.caption(f"OpenCV import details: `{error_details}`")
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("Controls")
+    uploaded_videos = {}
     for i in range(4):
         uploaded = st.file_uploader(f"Lane {i+1}", type=['mp4'], key=f'u{i}')
         if uploaded:
-            lanes[i].load_uploaded_video(uploaded)
+            uploaded_videos[i] = uploaded
     if st.button("Start Detection"):
-        st.success("Videos loaded!")
+        loaded_count = 0
+        failed_lanes = []
+        for i, uploaded in uploaded_videos.items():
+            if lanes[i].load_uploaded_video(uploaded):
+                loaded_count += 1
+            else:
+                failed_lanes.append(
+                    f"Lane {i + 1}: {lanes[i].load_error or 'Unable to load the video.'}"
+                )
+        if loaded_count:
+            st.success(f"{loaded_count} video(s) loaded successfully.")
+        if failed_lanes:
+            st.error("\n".join(failed_lanes))
 
 # ── 2x2 Grid ──────────────────────────────────────────────────────────────────
 col1, col2 = st.columns(2)
@@ -78,24 +97,32 @@ row1 = st.columns(2)
 with row1[0]:
     lane = lanes[0]
     st.markdown(f"**Lane 1** - {lane.signal_state}")
-    frame = lane.get_frame() or placeholder_frame()
+    frame = lane.get_frame()
+    if frame is None:
+        frame = placeholder_frame()
     st.image(frame, use_column_width=True)
 with row1[1]:
     lane = lanes[1]
     st.markdown(f"**Lane 2** - {lane.signal_state}")
-    frame = lane.get_frame() or placeholder_frame()
+    frame = lane.get_frame()
+    if frame is None:
+        frame = placeholder_frame()
     st.image(frame, use_column_width=True)
 
 row2 = st.columns(2)
 with row2[0]:
     lane = lanes[2]
     st.markdown(f"**Lane 3** - {lane.signal_state}")
-    frame = lane.get_frame() or placeholder_frame()
+    frame = lane.get_frame()
+    if frame is None:
+        frame = placeholder_frame()
     st.image(frame, use_column_width=True)
 with row2[1]:
     lane = lanes[3]
     st.markdown(f"**Lane 4** - {lane.signal_state}")
-    frame = lane.get_frame() or placeholder_frame()
+    frame = lane.get_frame()
+    if frame is None:
+        frame = placeholder_frame()
     st.image(frame, use_column_width=True)
 
 # ── Test ──────────────────────────────────────────────────────────────────────
