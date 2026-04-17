@@ -2,11 +2,11 @@ import queue
 import threading
 import time
 
-import cv2
 import numpy as np
 
 from config import *
 from sort import Sort, iou
+from vision_utils import create_placeholder_frame, cv2
 
 
 class Lane:
@@ -19,6 +19,7 @@ class Lane:
         self.signal_state = "RED"
         self.lane_id = lane_id
         self.video_path = None
+        self.load_error = None
 
         self.counts = self._empty_counts()
         self.accident = False
@@ -116,13 +117,35 @@ class Lane:
 
     def load_video(self, file_path):
         """Load video from file path"""
+        if cv2 is None:
+            self.load_error = (
+                "OpenCV is unavailable in this deployment. "
+                "Keep opencv-python-headless in requirements.txt and "
+                "install libgl1 plus libglib2.0-0 in packages.txt."
+            )
+            self.last_frame = create_placeholder_frame(
+                "OpenCV Missing",
+                "Cloud video features are disabled",
+            )
+            return False
+
         self.video_path = file_path
         if self.cap:
             self.cap.release()
         self.cap = cv2.VideoCapture(file_path)
+        if not self.cap or not self.cap.isOpened():
+            self.load_error = "Unable to open the uploaded video file."
+            self.last_frame = create_placeholder_frame(
+                "Video Error",
+                "Could not open uploaded video",
+            )
+            return False
+
+        self.load_error = None
         self.last_frame = None
         self._reset_tracking_state()
         self.start_processing()
+        return True
 
     def load_uploaded_video(self, uploaded_file):
         """Load video from Streamlit uploaded file by saving to temp path"""
@@ -131,7 +154,7 @@ class Lane:
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(uploaded_file.read())
             tmp_path = tmp.name
-        self.load_video(tmp_path)
+        return self.load_video(tmp_path)
 
     def start_processing(self):
         """Start video processing thread"""
@@ -167,6 +190,14 @@ class Lane:
 
     def process(self):
         """Process single frame — advances only when GREEN (running=True)"""
+        if cv2 is None:
+            if self.last_frame is None:
+                self.last_frame = create_placeholder_frame(
+                    "OpenCV Missing",
+                    "Video features are unavailable",
+                )
+            return self.last_frame
+
         if not self.cap or not self.cap.isOpened():
             return self.last_frame  # Return frozen last frame
 

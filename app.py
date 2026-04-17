@@ -1,8 +1,5 @@
 import streamlit as st
 import time
-import numpy as np
-import cv2
-import os
 
 # ─── Page config (must be first) ─────────────────────────────────────────────
 st.set_page_config(
@@ -16,6 +13,7 @@ from lane import Lane
 from config import MIN_GREEN, MAX_GREEN, YELLOW_TIME
 from dashboard import get_dashboard_charts
 from evaluator import get_evaluation_metrics
+from vision_utils import create_placeholder_frame, cv2_error_message, has_cv2
 
 # ─── Custom CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
@@ -377,10 +375,7 @@ def traffic_logic():
 
 # ─── Placeholder image ────────────────────────────────────────────────────────
 def placeholder_frame():
-    img = np.zeros((320, 480, 3), dtype=np.uint8)
-    cv2.putText(img, "NO VIDEO", (160, 155), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (30, 50, 80), 2)
-    cv2.putText(img, "Upload a video file", (120, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (20, 40, 60), 1)
-    return img
+    return create_placeholder_frame("NO VIDEO", "Upload a video file")
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
